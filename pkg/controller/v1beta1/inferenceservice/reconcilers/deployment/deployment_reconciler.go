@@ -184,8 +184,10 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	}
 	if spec.Strategy.RollingUpdate == nil {
 		spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{
-			MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
-			MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			// MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: int32(0)},
+			// MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: int32(1)},
+			MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "30%"},
+			MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "30%"},
 		}
 	}
 	if spec.RevisionHistoryLimit == nil {
@@ -193,7 +195,7 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 		spec.RevisionHistoryLimit = &revisionHistoryLimit
 	}
 	if spec.ProgressDeadlineSeconds == nil {
-		progressDeadlineSeconds := int32(600)
+		progressDeadlineSeconds := int32(3600)
 		spec.ProgressDeadlineSeconds = &progressDeadlineSeconds
 	}
 }
@@ -214,6 +216,8 @@ func (r *DeploymentReconciler) Reconcile() (*appsv1.Deployment, error) {
 			return r.Deployment, nil
 		}
 	} else if checkResult == constants.CheckResultUpdate {
+		r.Deployment.ResourceVersion = deployment.ResourceVersion
+		r.Deployment.Spec.Replicas = deployment.Spec.Replicas
 		err = r.client.Update(context.TODO(), r.Deployment)
 		if err != nil {
 			return nil, err

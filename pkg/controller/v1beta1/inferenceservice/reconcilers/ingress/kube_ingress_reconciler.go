@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"knative.dev/pkg/network"
 
@@ -106,6 +107,50 @@ func isMultiPorts(annotations map[string]string) bool {
 	return false
 }
 
+func generateTLS(annotations map[string]string, rules []netv1.IngressRule, ingressConfig *v1beta1api.IngressConfig) []netv1.IngressTLS {
+	var tls []netv1.IngressTLS
+	var oneTls netv1.IngressTLS
+	oneTls.SecretName = *ingressConfig.IngressTlsSecretName
+	var port int
+	if value, ok := annotations[constants.PortHttpsTransformer]; ok {
+		if value != "" {
+			ports := strings.Split(value, ",")
+			for i := 0; i < len(ports); i++ {
+				port, _ = strconv.Atoi(ports[i])
+				for j := 0; j < len(rules); j++ {
+					for k := 0; k < len(rules[j].HTTP.Paths); k++ {
+						if int32(port) == rules[j].HTTP.Paths[k].Backend.Service.Port.Number && strings.Contains(rules[j].HTTP.Paths[k].Backend.Service.Name, "transformer") {
+							oneTls.Hosts = append(oneTls.Hosts, rules[j].Host)
+							break
+						}
+					}
+				}
+			}
+			tls = append(tls, oneTls)
+			return tls
+		}
+	}
+	if value, ok := annotations[constants.PortHttps]; ok {
+		if value != "" {
+			ports := strings.Split(value, ",")
+			for i := 0; i < len(ports); i++ {
+				port, _ = strconv.Atoi(ports[i])
+				for j := 0; j < len(rules); j++ {
+					for k := 0; k < len(rules[j].HTTP.Paths); k++ {
+						if int32(port) == rules[j].HTTP.Paths[k].Backend.Service.Port.Number {
+							oneTls.Hosts = append(oneTls.Hosts, rules[j].Host)
+							break
+						}
+					}
+				}
+			}
+			tls = append(tls, oneTls)
+			return tls
+		}
+	}
+	return tls
+}
+
 func generateMetadata(isvc *v1beta1api.InferenceService,
 	componentType constants.InferenceServiceComponent) metav1.ObjectMeta {
 	var name string
@@ -153,6 +198,10 @@ func generateMultiPortsRules(host string, isvc *v1beta1.InferenceService) []netv
 		for _, port := range isvc.Spec.Predictor.Containers[0].Ports {
 			rules = append(rules, generateRule(port.Name+"."+host, constants.DefaultPredictorServiceName(isvc.Name), "/", port.ContainerPort))
 		}
+	} else if isvc.Spec.Predictor.Model != nil && len(isvc.Spec.Predictor.Model.Ports) != 0 {
+		for _, port := range isvc.Spec.Predictor.Model.Ports {
+			rules = append(rules, generateRule(port.Name+"."+host, constants.DefaultPredictorServiceName(isvc.Name), "/", port.ContainerPort))
+		}
 	}
 	return rules
 }
@@ -193,8 +242,13 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 			rules = append(rules, generateRule(explainerHost, constants.DefaultExplainerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
 		}
 		// :predict routes to the transformer when there are both predictor and transformer
-		rules = append(rules, generateRule(host, constants.DefaultTransformerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
-		rules = append(rules, generateRule(transformerHost, constants.DefaultTransformerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
+		if len(isvc.Spec.Transformer.Containers[0].Ports) != 0 {
+			rules = append(rules, generateRule(host, constants.DefaultTransformerServiceName(isvc.Name), "/", isvc.Spec.Transformer.Containers[0].Ports[0].ContainerPort))
+			rules = append(rules, generateRule(transformerHost, constants.DefaultTransformerServiceName(isvc.Name), "/", isvc.Spec.Transformer.Containers[0].Ports[0].ContainerPort))
+		} else {
+			rules = append(rules, generateRule(host, constants.DefaultTransformerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
+			rules = append(rules, generateRule(transformerHost, constants.DefaultTransformerServiceName(isvc.Name), "/", constants.CommonDefaultHttpPort))
+		}
 	} else if isvc.Spec.Explainer != nil {
 		if !isvc.Status.IsConditionReady(v1beta1api.ExplainerReady) {
 			isvc.Status.SetCondition(v1beta1api.IngressReady, &apis.Condition{
@@ -250,7 +304,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 			rules = append(rules, generateRule(predictorHost, constants.DefaultPredictorServiceName(isvc.Name), "/", int32(port)))
 		}
 	}
-
+	tls := generateTLS(isvc.Annotations, rules, ingressConfig)
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        isvc.ObjectMeta.Name,
@@ -260,6 +314,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1api.InferenceService,
 		Spec: netv1.IngressSpec{
 			IngressClassName: ingressConfig.IngressClassName,
 			Rules:            rules,
+			TLS:              tls,
 		},
 	}
 	if err := controllerutil.SetControllerReference(isvc, ingress, scheme); err != nil {

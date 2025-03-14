@@ -71,6 +71,7 @@ type IngressConfig struct {
 	LocalGatewayServiceName string  `json:"localGatewayService,omitempty"`
 	IngressDomain           string  `json:"ingressDomain,omitempty"`
 	IngressClassName        *string `json:"ingressClassName,omitempty"`
+	IngressTlsSecretName    *string `json:"ingressTlsSecretName,omitempty"`
 	DomainTemplate          string  `json:"domainTemplate,omitempty"`
 	UrlScheme               string  `json:"urlScheme,omitempty"`
 	DisableIstioVirtualHost bool    `json:"disableIstioVirtualHost,omitempty"`

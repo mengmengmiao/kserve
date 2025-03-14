@@ -92,6 +92,8 @@ var (
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
 	DefaultPodPrometheusPort                    = "9090"
 	IsMultiPorts                                = KServeAPIGroupName + "/isMultiPorts"
+	PortHttps                                   = KServeAPIGroupName + "/portHttps"
+	PortHttpsTransformer                        = KServeAPIGroupName + "/portHttpsTransformer"
 )
 
 // InferenceService Internal Annotations
