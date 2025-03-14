@@ -25,3 +25,19 @@ WORKDIR /work
 RUN useradd kserve -m -u 1000 -d /home/kserve
 USER 1000
 ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]
+
+
+# FROM storage-with-hdfs:base
+
+# ARG DEBIAN_FRONTEND=noninteractive
+
+# COPY kserve /kserve
+# COPY ./storage-initializer /storage-initializer
+
+# RUN chmod +x /storage-initializer/scripts/initializer-entrypoint
+# WORKDIR /work
+
+# RUN useradd kserve -m -u 1000 -d /home/kserve
+# USER 1000
+
+# ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]
