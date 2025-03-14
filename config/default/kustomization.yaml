@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Adds namespace to all resources.
+namespace: kserve
+
+# Labels to add to all resources and selectors.
+#commonLabels:
+#  app.kubernetes.io/name: kserve
+
+bases:
+- ../crd
+- ../configmap
+- ../rbac
+- ../manager
+- ../webhook
+- ../certmanager
+
+  # Protect the /metrics endpoint by putting it behind auth.
+  # Only one of manager_auth_proxy_patch.yaml and
+  # manager_prometheus_metrics_patch.yaml should be enabled.
+  # If you want your controller-manager to expose the /metrics
+  # endpoint w/o any authn/z, uncomment the following line and
+  # comment manager_auth_proxy_patch.yaml.
+  # Only one of manager_auth_proxy_patch.yaml and
+  # manager_prometheus_metrics_patch.yaml should be enabled.
+#- manager_prometheus_metrics_patch.yaml
+patchesStrategicMerge:
+- manager_image_patch.yaml
+- manager_auth_proxy_patch.yaml
+- webhookcainjection_patch.yaml
+- manager_resources_patch.yaml
+- inferenceservice_conversion_webhook.yaml
+- cainjection_conversion_webhook.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+vars:
+- fieldref:
+    fieldpath: metadata.name
+  name: webhookServiceName
+  objref:
+    apiVersion: v1
+    kind: Service
+    name: kserve-webhook-server-service
+- name: kserveNamespace
+  objref:
+    kind: Certificate
+    group: cert-manager.io
+    version: v1
+    name: serving-cert
+  fieldref:
+    fieldpath: metadata.namespace
+configurations:
+- params.yaml
