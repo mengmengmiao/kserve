@@ -46,8 +46,8 @@ const (
 
 // Constants
 var (
-	SupportedStorageURIPrefixList     = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "hostpath://"}
-	SupportedStorageSpecURIPrefixList = []string{"s3://", "hdfs://", "webhdfs://", "hostpath://"}
+	SupportedStorageURIPrefixList     = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://"}
+	SupportedStorageSpecURIPrefixList = []string{"s3://", "hdfs://", "webhdfs://"}
 	AzureBlobURL                      = "blob.core.windows.net"
 	AzureBlobURIRegEx                 = "https://(.+?).blob.core.windows.net/(.+)"
 )

@@ -36,10 +36,8 @@ const (
 	StorageInitializerContainerImage        = "kserve/storage-initializer"
 	StorageInitializerContainerImageVersion = "latest"
 	PvcURIPrefix                            = "pvc://"
-	LocalFileURIPrefix                      = "hostpath://"
 	PvcSourceMountName                      = "kserve-pvc-source"
 	PvcSourceMountPath                      = "/mnt/pvc"
-	LocalFileMountName                      = "kserve-hostpath"
 )
 
 type StorageInitializerConfig struct {
@@ -152,35 +150,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		srcURI = PvcSourceMountPath + "/" + pvcPath
 	}
 
-	if strings.HasPrefix(srcURI, LocalFileURIPrefix) {
-		localFilePath, err := parseLocalFileURI(srcURI)
-		if err != nil {
-			return err
-		}
-		hostPathDirectory := v1.HostPathDirectory
-		// add the hostpath volume on the pod
-		hostPathSourceVolume := v1.Volume{
-			Name: LocalFileMountName,
-			VolumeSource: v1.VolumeSource{
-				HostPath: &v1.HostPathVolumeSource{
-					Path: localFilePath,
-					Type: &hostPathDirectory, 
-				},
-			},
-		}
-		podVolumes = append(podVolumes, hostPathSourceVolume)
-
-		// add a corresponding hostpath volume mount to the INIT container
-		hostPathSourceVolumeMount := v1.VolumeMount{
-			Name:      LocalFileMountName,
-			MountPath: localFilePath,
-			ReadOnly:  true,
-		}
-		storageInitializerMounts = append(storageInitializerMounts, hostPathSourceVolumeMount)
-
-		// Since the model path is linked from source hostpath, userContainer also need to mount the pvc.
-		userContainer.VolumeMounts = append(userContainer.VolumeMounts, hostPathSourceVolumeMount)
-	}
 	// Create a volume that is shared between the storage-initializer and kserve-container
 	sharedVolume := v1.Volume{
 		Name: StorageInitializerVolumeName,
@@ -299,15 +268,4 @@ func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	}
 
 	return pvcName, pvcPath, nil
-}
-
-func parseLocalFileURI(srcURI string) (localFilePath string, err error) {
-	parts := strings.Split(strings.TrimPrefix(srcURI, LocalFileURIPrefix), "/")
-	if len(parts) > 1 {
-		localFilePath = strings.Join(parts[:len(parts)-1], "/")
-	} else {
-		return "", fmt.Errorf("Invalid URI must be file://<localFilePath>/[model]: %s", srcURI)
-	}
-
-	return localFilePath, nil
 }

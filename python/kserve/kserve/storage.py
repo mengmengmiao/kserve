@@ -44,7 +44,6 @@ _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _HDFS_PREFIX = "hdfs://"
 _WEBHDFS_PREFIX = "webhdfs://"
-_HOST_PATH_PREFIX = "hostpath://"
 _AZURE_BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
 _AZURE_FILE_RE = "https://(.+?).file.core.windows.net/(.+)"
 _LOCAL_PREFIX = "file://"
@@ -84,8 +83,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             Storage._download_s3(uri, out_dir)
         elif uri.startswith(_HDFS_PREFIX) or uri.startswith(_WEBHDFS_PREFIX):
             Storage._download_hdfs(uri, out_dir)
-        elif uri.startswith(_HOST_PATH_PREFIX):
-            Storage._download_hostpath(uri, out_dir)
         elif re.search(_AZURE_BLOB_RE, uri):
             Storage._download_azure_blob(uri, out_dir)
         elif re.search(_AZURE_FILE_RE, uri):
@@ -485,38 +482,6 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         local_path = uri.replace(_LOCAL_PREFIX, "", 1)
         if not os.path.exists(local_path):
             raise RuntimeError("Local path %s does not exist." % (uri))
-
-        if out_dir is None:
-            return local_path
-        elif not os.path.isdir(out_dir):
-            os.makedirs(out_dir)
-
-        if os.path.isdir(local_path):
-            local_path = os.path.join(local_path, "*")
-
-        count = 0
-        for src in glob.glob(local_path):
-            _, tail = os.path.split(src)
-            dest_path = os.path.join(out_dir, tail)
-            logging.info("Linking: %s to %s", src, dest_path)
-            os.symlink(src, dest_path)
-            count = count + 1
-        if count == 0:
-            raise RuntimeError(
-                "Failed to fetch model. No model found in %s." % (uri))
-        # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
-        if count == 1:
-            mimetype, _ = mimetypes.guess_type(dest_path)
-            if mimetype in ["application/x-tar", "application/zip"]:
-                Storage._unpack_archive_file(dest_path, mimetype, out_dir)
-
-        return out_dir
-
-    @staticmethod
-    def _download_hostpath(uri, out_dir=None):
-        local_path = uri.replace(_HOST_PATH_PREFIX, "", 1)
-        if not os.path.exists(local_path):
-            raise RuntimeError("Host path %s does not exist." % (uri))
 
         if out_dir is None:
             return local_path

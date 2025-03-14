@@ -5,7 +5,7 @@ FROM golang:1.18 as builder
 WORKDIR /go/src/github.com/kserve/kserve
 COPY go.mod  go.mod
 COPY go.sum  go.sum
-RUN go env -w GOPROXY=https://goproxy.cn,direct
+
 RUN  go mod download
 
 COPY cmd/    cmd/
@@ -15,8 +15,7 @@ COPY pkg/    pkg/
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o manager ./cmd/manager
 
 # Copy the controller-manager into a thin image
-# FROM gcr.io/distroless/static:nonroot
-FROM  docker.io/katanomi/distroless-static:nonroot
+FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY third_party/ third_party/
 COPY --from=builder /go/src/github.com/kserve/kserve/manager .
